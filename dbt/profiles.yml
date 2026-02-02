@@ -1,0 +1,12 @@
+my_project:
+  outputs:
+    dev:
+      type: postgres
+      host: pgdatabase
+      user: root
+      password: root
+      port: 5432
+      dbname: movie_pipeline
+      schema: dev
+      threads: 4
+  target: dev

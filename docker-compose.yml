@@ -1,0 +1,53 @@
+services:
+  pgdatabase:
+    image: postgres:17
+    container_name: postgres
+    environment:
+      POSTGRES_DB: movie_pipeline
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    volumes:
+      - ./.postgres/data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - movie-network
+
+  airflow:
+    image: apache/airflow:3.1.6
+    container_name: airflow
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@pg-database:5432/airflow_db
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/airflow/dags:/opt/airflow/dags
+      - ${AIRFLOW_PROJ_DIR:-.}/airflow/logs:/opt/airflow/logs
+      - ${AIRFLOW_PROJ_DIR:-.}/airflow/config:/opt/airflow/config
+      - ${AIRFLOW_PROJ_DIR:-.}/airflow/plugins:/opt/airflow/plugins
+    depends_on:
+      - pgdatabase
+    networks:
+      - movie-network
+    command: >
+      bash -c "airflow db migrate && airflow standalone"
+
+  dbt:
+    container_name: dbt
+    image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
+    volumes:
+      - ./dbt:/usr/app
+      - ./dbt:/root/.dbt
+    working_dir: /usr/app
+    environment:
+      DBT_PROFILES_DIR: "/root/.dbt"
+    depends_on:
+      - pgdatabase
+    networks:
+      - movie-network
+    entrypoint: [ "/bin/bash", "/usr/app/entrypoint.sh" ]
+    command: [ "debug", "--project-dir", "./my_project/" ]
+
+networks:
+  movie-network:
+    driver: bridge
