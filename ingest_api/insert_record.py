@@ -32,6 +32,7 @@ def create_table(conn):
                 popularity NUMERIC,
                 production_country CHAR(2),
                 release_date TIMESTAMP,
+                budget BIGINT,
                 revenue BIGINT,
                 runtime INTEGER,
                 spoken_language CHAR(2),
@@ -42,12 +43,31 @@ def create_table(conn):
                 vote_count INTEGER
             );
 
-            CREATE TABLE IF NOT EXISTS raw.raw_movie_genre (
-                genre_id INTEGER,
-                movie_id INTEGER
+            CREATE TABLE IF NOT EXISTS raw.raw_genre_data (
+                id INTEGER,
+                name TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS raw.raw_company_data (
+                id INTEGER,
+                name TEXT,
+                origin_country CHAR(2)
+            );
+
+            CREATE TABLE IF NOT EXISTS raw.raw_language_data (
+                iso_639_1 CHAR(2),
+                english_name TEXT,
+                name TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS raw.raw_country_data (
+                iso_3166_1 CHAR(2),
+                english_name TEXT,
+                native_name TEXT
             );
             """
         )
+        conn.commit()
     except psycopg2.errors as e:
         print(f"connection failed: {e}")
         raise
@@ -58,17 +78,21 @@ def insert_record(conn, data):
         cursor = conn.cursor()
         cursor.executemany(
             """
-            INSERT INTO TABLE raw.raw_movie_data (
+            INSERT INTO raw.raw_movie_data (
                 adult, id, original_language, original_title, overview, popularity, production_country, 
                 release_date, revenue, runtime, spoken_language, status, tagline, title, vote_average, vote_count 
             ) 
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
+            """,
+            data
         )
+        conn.commit()
     except psycopg2.errors as e:
         print(f"connection failed: {e}")
         raise
 
 
-conn = connect_to_db(port=5433)
-create_table(conn)
+if __name__ == "__main__":
+    conn = connect_to_db(port=5433)
+    create_table(conn)
+    conn.close()
