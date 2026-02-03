@@ -12,31 +12,41 @@ services:
       - "5433:5432"
     networks:
       - movie-network
+  afdatabase:
+    image: postgres:17
+    container_name: airflow_postgres
+    environment:
+      POSTGRES_DB: airflow_db
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - ./airflow/data:/var/lib/postgresql/data
+    networks:
+      - movie-network
 
   airflow:
     image: apache/airflow:3.1.6
     container_name: airflow
     ports:
-      - "8080:8080"
+      - 8080:8080
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@pg-database:5432/airflow_db
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@afdatabase/airflow_db
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}/airflow/dags:/opt/airflow/dags
-      - ${AIRFLOW_PROJ_DIR:-.}/airflow/logs:/opt/airflow/logs
-      - ${AIRFLOW_PROJ_DIR:-.}/airflow/config:/opt/airflow/config
-      - ${AIRFLOW_PROJ_DIR:-.}/airflow/plugins:/opt/airflow/plugins
+      # - ${AIRFLOW_PROJ_DIR:-.}/airflow/logs:/opt/airflow/logs
+      # - ${AIRFLOW_PROJ_DIR:-.}/airflow/config:/opt/airflow/config
+      # - ${AIRFLOW_PROJ_DIR:-.}/airflow/plugins:/opt/airflow/plugins
     depends_on:
-      - pgdatabase
+      - afdatabase
     networks:
       - movie-network
     command: >
-      bash -c "airflow db migrate && airflow standalone"
-
+      bash -c " airflow db migrate && airflow standalone "
   dbt:
     container_name: dbt
     image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
     volumes:
-      - ./dbt:/usr/app
+      - ./dbt/my_project:/usr/app
       - ./dbt:/root/.dbt
     working_dir: /usr/app
     environment:
@@ -45,7 +55,7 @@ services:
       - pgdatabase
     networks:
       - movie-network
-    entrypoint: [ "/bin/bash", "/usr/app/entrypoint.sh" ]
+    entrypoint: [ "/bin/bash", "/root/.dbt/entrypoint.sh" ]
     command: [ "debug", "--project-dir", "./my_project/" ]
 
 networks:

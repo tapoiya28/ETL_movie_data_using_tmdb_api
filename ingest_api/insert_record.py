@@ -1,7 +1,5 @@
-from psycopg2 import cursor
 import psycopg2
-import psycopg2
-import sqlalchemy import create_engine
+from sqlalchemy import create_engine
 
 def connect_to_db(host='localhost', port='5432', dbname='movie_pipeline', user='root', password='root'):
     try:
@@ -11,7 +9,7 @@ def connect_to_db(host='localhost', port='5432', dbname='movie_pipeline', user='
             port=port,
             dbname=dbname,
             user=user,
-            password=pass
+            password=password
         )
         return conn
     except psycopg2.errors as e:
@@ -23,32 +21,32 @@ def create_table(conn):
     try:
         cursor = conn.cursor()
         cursor.execute(
-        """
-        CREATE SCHEMA IF NOT EXISTS raw;
-        CREATE TABLE IF NOT EXISTS raw.raw_movie_data (
-            adult TEXT,
-            id BIGINT,
-            original_language CHAR(2),
-            original_title TEXT,
-            overview TEXT,
-            popularity NUMERIC,
-            production_country CHAR(2),
-            release_date TIMESTAMP,
-            revenue BIGINT,
-            runtime INTEGER,
-            spoken_language CHAR(2),
-            status TEXT,
-            tagline TEXT,
-            title TEXT,
-            vote_average NUMERIC,
-            vote_count INTEGER
-        );
+            """
+            CREATE SCHEMA IF NOT EXISTS raw;
+            CREATE TABLE IF NOT EXISTS raw.raw_movie_data (
+                adult TEXT,
+                id BIGINT,
+                original_language CHAR(2),
+                original_title TEXT,
+                overview TEXT,
+                popularity NUMERIC,
+                production_country CHAR(2),
+                release_date TIMESTAMP,
+                revenue BIGINT,
+                runtime INTEGER,
+                spoken_language CHAR(2),
+                status TEXT,
+                tagline TEXT,
+                title TEXT,
+                vote_average NUMERIC,
+                vote_count INTEGER
+            );
 
-        CREATE TABLE IF NOT EXISTS raw.raw_movie_genre (
-            genre_id INTEGER,
-            movie_id INTEGER
-        );
-        """
+            CREATE TABLE IF NOT EXISTS raw.raw_movie_genre (
+                genre_id INTEGER,
+                movie_id INTEGER
+            );
+            """
         )
     except psycopg2.errors as e:
         print(f"connection failed: {e}")
@@ -70,3 +68,7 @@ def insert_record(conn, data):
     except psycopg2.errors as e:
         print(f"connection failed: {e}")
         raise
+
+
+conn = connect_to_db(port=5433)
+create_table(conn)
