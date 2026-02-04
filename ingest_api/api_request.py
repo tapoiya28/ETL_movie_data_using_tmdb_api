@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import create_engine
+import time
 
 import requests
 import os
@@ -135,7 +136,6 @@ def extract_popular_movie(pages=1):
         ]
 
     movies, movie_genres, movie_comps, movie_langs = [], [], [], []
-
     for page in range(1, pages+1):
         movie_ids = fetch_popular_movie(page=page)
         for id in movie_ids:
@@ -146,7 +146,9 @@ def extract_popular_movie(pages=1):
                 movie_genres.extend(g)
                 movie_comps.extend(c)
                 movie_langs.extend(l)
-    
+
+        time.sleep(0.1)
+        
     movie_df = pd.DataFrame(movies, columns=cols)
     movie_df['belongs_to_collection'] = movie_df['belongs_to_collection'].notnull()
     movie_df['extracted_at'] = datetime.now(timezone.utc)

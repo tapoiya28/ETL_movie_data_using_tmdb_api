@@ -38,6 +38,7 @@ with DAG(
     extract_movie = PythonOperator(
         task_id='extract_movie_data',
         python_callable=extract_popular_movie,
+        op_args=[500],
         dag=dag
     )
 

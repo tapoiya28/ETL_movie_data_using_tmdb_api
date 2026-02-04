@@ -4,4 +4,4 @@ data/
 .postgres
 .afpostgres
 *.csv
-__pycache__
+__pycache__/

@@ -49,9 +49,9 @@ services:
     container_name: dbt
     image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
     volumes:
-      - ./dbt/my_project:/usr/app
+      - ./dbt:/usr/app
       - ./dbt:/root/.dbt
-    working_dir: /usr/app
+    working_dir: /usr/app/
     environment:
       DBT_PROFILES_DIR: "/root/.dbt"
     depends_on:
@@ -59,7 +59,7 @@ services:
     networks:
       - movie-network
     entrypoint: [ "/bin/bash", "/root/.dbt/entrypoint.sh" ]
-    command: [ "debug", "--project-dir", "./my_project/" ]
+    command: [ "debug", "--project-dir", "my_project" ]
 
 networks:
   movie-network:
