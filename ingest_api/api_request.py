@@ -8,7 +8,7 @@ import pandas as pd
 API_KEY = '700952bb2b594cfeb52434c089230b84'
 BASE_URL = 'https://api.themoviedb.org/3'
 
-engine = create_engine('postgresql://root:root@localhost:5433/movie_pipeline')
+engine = create_engine('postgresql://root:root@pgdatabase:5432/movie_pipeline')
 
 # ----------------- FETCHING DATA -----------------------------
 def _fetch_from_api(endpoint, extra_params=None, extra_fn=None):
@@ -59,8 +59,8 @@ def fetch_countries():
     )
 
 
-# ----------------- INGESTING DATA -----------------------------
-def _ingest_static_data(fetch_fn, filename, table_name, columns, data_key=None):
+# ----------------- extractING DATA -----------------------------
+def _extract_static_data(fetch_fn, filename, table_name, columns, data_key=None):
     response = fetch_fn()
     if not response:
         return
@@ -73,11 +73,11 @@ def _ingest_static_data(fetch_fn, filename, table_name, columns, data_key=None):
             df.to_csv(filename, index=False)
         df.to_sql(schema='raw', name=table_name, con=engine, if_exists='replace')
     except Exception as e:
-        print(f"error occurred when ingesting static data: {e}")
+        print(f"error occurred when extracting static data: {e}")
         return None
 
-def ingest_genres():
-    return _ingest_static_data(
+def extract_genres():
+    return _extract_static_data(
         fetch_fn=fetch_movie_genres, 
         filename='csv/movie_genre.csv', 
         table_name='raw_movie_genre_data',
@@ -85,27 +85,27 @@ def ingest_genres():
         data_key='genres'
     )
 
-def ingest_languages():
-    return _ingest_static_data(
+def extract_languages():
+    return _extract_static_data(
         fetch_fn=fetch_languages, 
         filename='csv/language.csv', 
         table_name='raw_language_data',
         columns={'iso_639_1': 'string', 'english_name': 'string', 'name': 'string'}
     )
 
-def ingest_countries():
-    return _ingest_static_data(
+def extract_countries():
+    return _extract_static_data(
         fetch_fn=fetch_countries, 
         filename='csv/country.csv', 
         table_name='raw_country_data',
         columns={'iso_3166_1': 'string', 'english_name': 'string', 'native_name': 'string'}
     )
 
-def ingest_popular_movie(pages=1):
+def extract_popular_movie(pages=1):
     """
-    Ingest N first page in the popular category
+    extract N first page in the popular category
 
-    page: the number of page will be ingest
+    page: the number of page will be extract
     """
 
     def extract_relations(movie):

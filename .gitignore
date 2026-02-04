@@ -1,3 +1,7 @@
 .venv
 logs/
 data/
+.postgres
+.afpostgres
+*.csv
+__pycache__

@@ -20,7 +20,7 @@ services:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
     volumes:
-      - ./airflow/data:/var/lib/postgresql/data
+      - ./.afpostgres/data:/var/lib/postgresql/data
     networks:
       - movie-network
 
@@ -33,6 +33,8 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@afdatabase/airflow_db
     volumes:
       - ${AIRFLOW_PROJ_DIR:-.}/airflow/dags:/opt/airflow/dags
+      - ${AIRFLOW_PROJ_DIR:-.}/ingest_api:/opt/airflow/ingest_api
+      - ${AIRFLOW_PROJ_DIR:-.}/csv:/opt/airflow/csv
       # - ${AIRFLOW_PROJ_DIR:-.}/airflow/logs:/opt/airflow/logs
       # - ${AIRFLOW_PROJ_DIR:-.}/airflow/config:/opt/airflow/config
       # - ${AIRFLOW_PROJ_DIR:-.}/airflow/plugins:/opt/airflow/plugins
@@ -42,6 +44,7 @@ services:
       - movie-network
     command: >
       bash -c " airflow db migrate && airflow standalone "
+
   dbt:
     container_name: dbt
     image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
