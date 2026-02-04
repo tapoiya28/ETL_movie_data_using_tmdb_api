@@ -72,7 +72,7 @@ def _extract_static_data(fetch_fn, filename, table_name, columns, data_key=None)
     try:
         if not os.path.exists(filename):
             df.to_csv(filename, index=False)
-        df.to_sql(schema='raw', name=table_name, con=engine, if_exists='replace')
+        df.to_sql(schema='raw', name=table_name, con=engine, if_exists='replace', index=False)
     except Exception as e:
         print(f"error occurred when extracting static data: {e}")
         return None

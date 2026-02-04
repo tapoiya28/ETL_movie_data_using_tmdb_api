@@ -5,3 +5,4 @@ data/
 .afpostgres
 *.csv
 __pycache__/
+*.pyc

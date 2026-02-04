@@ -51,7 +51,7 @@ services:
     volumes:
       - ./dbt:/usr/app
       - ./dbt:/root/.dbt
-    working_dir: /usr/app/
+    working_dir: /usr/app/my_project
     environment:
       DBT_PROFILES_DIR: "/root/.dbt"
     depends_on:

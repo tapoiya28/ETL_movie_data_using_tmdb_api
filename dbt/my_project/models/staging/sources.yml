@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: raw_data
+    description: "Raw movie and additional static data from raw schema"
+    database: movie_pipeline
+    schema: raw
+    tables: 
+      - name: raw_movie_data
+      - name: raw_movie_genre_data
+      - name: raw_language_data
+      - name: raw_country_data
+      
