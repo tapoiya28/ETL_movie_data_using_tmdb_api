@@ -1,0 +1,7 @@
+{
+    "files.exclude": {
+        "**/.postgres": true,
+        "**/.afpostgres": true,
+        "**/.venv": true
+    }
+}
