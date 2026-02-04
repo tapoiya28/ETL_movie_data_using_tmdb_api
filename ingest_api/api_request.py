@@ -1,168 +1,105 @@
+from datetime import datetime, timezone
 from sqlalchemy import create_engine
 
 import requests
-import csv
+import os
 import pandas as pd
 
 API_KEY = '700952bb2b594cfeb52434c089230b84'
 BASE_URL = 'https://api.themoviedb.org/3'
 
-engine = create_engine("postgresql+psycopg2://root:root@pgdatabase:5433/movie_pipeline")
+engine = create_engine('postgresql://root:root@localhost:5433/movie_pipeline')
 
-def fetch_popular_movie(page=1):
-    endpoint = f"{BASE_URL}/movie/popular"
+# ----------------- FETCHING DATA -----------------------------
+def _fetch_from_api(endpoint, extra_params=None, extra_fn=None):
+    """Base fetch function for all API endpoint"""
+
     params = {
         "api_key": API_KEY,
         "language": "en-US",
-        "page": page
     }
+
+    if extra_params:
+        params.update(extra_params)
+
     try:
-        response = requests.get(endpoint, params=params)
+        response = requests.get(f"{BASE_URL}/{endpoint}", params=params)
         response.raise_for_status()
         data = response.json()
-        return [movie['id'] for movie in data.get('results', [])]
+        return extra_fn(data) if extra_fn else data
     except requests.exceptions.RequestException as e:
         print(f"Error occurred: {e}")
         return []
 
+def fetch_popular_movie(page=1):
+    return _fetch_from_api(
+        endpoint='movie/popular',
+        extra_params={'page': page},
+        extra_fn=lambda data: [movie['id'] for movie in data.get('results', [])]
+    ) or []
+
 def fetch_detail_movie(movie_id):
-    endpoint = f"{BASE_URL}/movie/{movie_id}"
-    params = {
-        "api_key": API_KEY,
-        "language": "en-US"
-    }
-    try:
-        response = requests.get(endpoint, params=params)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error occurred: {e}")
-        return None
+    return _fetch_from_api(
+        endpoint=f'movie/{movie_id}'
+    )
 
 def fetch_movie_genres():
-    endpoint = f"{BASE_URL}/genre/movie/list"
-    params = {
-        "api_key": API_KEY,
-        "language": "en-US"
-    }
-
-    try:
-        response = requests.get(endpoint, params)
-        response.raise_for_status()
-        data = response.json()
-        return data
-    except requests.exceptions.RequestException as e:
-        print(f"Error occurred: {e}")
-        return None
-
-# def fetch_movie_reviews():
-#     endpoint = ''
-#     params = {
-#         "api_key": API_KEY,
-#         "language": "en-US"
-#     }
-
-#     try:
-#         response = requests.get(endpoint, params)
-#         response.raise_for_status()
-#         data = response.json()
-#         return data
-#     except requests.exceptions.RequestException as e:
-#         print(f"Error occurred: {e}")
-#         return None
+    return _fetch_from_api(
+        endpoint="genre/movie/list"
+    )
 
 def fetch_languages():
-    endpoint = f'{BASE_URL}/configuration/languages'
-    params = {
-        "api_key": API_KEY,
-        "language": "en-US"
-    }
+    return _fetch_from_api(
+        endpoint="configuration/languages"
+    )
 
+def fetch_countries():
+    return _fetch_from_api(
+        endpoint="configuration/countries"
+    )
+
+
+# ----------------- INGESTING DATA -----------------------------
+def _ingest_static_data(fetch_fn, filename, table_name, columns, data_key=None):
+    response = fetch_fn()
+    if not response:
+        return
+    
+    data = response.get(data_key) if data_key and isinstance(response, dict) else response
+    df = pd.DataFrame(data, columns=columns)
+    
     try:
-        response = requests.get(endpoint, params)
-        response.raise_for_status()
-        data = response.json()
-        return data
-    except requests.exceptions.RequestException as e:
-        print(f"Error occurred: {e}")
+        if not os.path.exists(filename):
+            df.to_csv(filename, index=False)
+        df.to_sql(schema='raw', name=table_name, con=engine, if_exists='replace')
+    except Exception as e:
+        print(f"error occurred when ingesting static data: {e}")
         return None
 
-#-----------------------------------------------------------------
+def ingest_genres():
+    return _ingest_static_data(
+        fetch_fn=fetch_movie_genres, 
+        filename='csv/movie_genre.csv', 
+        table_name='raw_movie_genre_data',
+        columns={'id': 'Int64', 'name': 'string'},
+        data_key='genres'
+    )
 
-# def fetch_general(endpoint):
-#     params = {
-#         "api_key": API_KEY,
-#         "language": "en-US"
-#     }
+def ingest_languages():
+    return _ingest_static_data(
+        fetch_fn=fetch_languages, 
+        filename='csv/language.csv', 
+        table_name='raw_language_data',
+        columns={'iso_639_1': 'string', 'english_name': 'string', 'name': 'string'}
+    )
 
-#     try:
-#         response = requests.get(endpoint, params)
-#         response.raise_for_status()
-#         data = response.json()
-#         return data
-#     except requests.exceptions.RequestException as e:
-#         print(f"Error occurred: {e}")
-#         return None
-
-# def fetch_detail(endpoint, id=None):
-#     params = {
-#         "api_key": API_KEY,
-#         "language": "en-US"
-#     }
-
-#     try:
-#         response = requests.get(endpoint, params)
-#         response.raise_for_status()
-#         data = response.json()
-#         return data
-#     except requests.exceptions.RequestException as e:
-#         print(f"Error occurred: {e}")
-#         return None
-
-# def fetch_page(endpoint, page=1):
-#     pass
-
-#-----------------------------------------------------------------
-
-# fetch genres
-genre_col = {
-    'id': 'Int64',
-    'name': 'string'
-}
-
-def ingest_movie_genre():
-    genre_response = fetch_movie_genres()
-    if genre_response:
-        movie_genre_df = pd.DataFrame(genre_response['genres'], columns=genre_col)
-        # movie_genre_df.to_csv('movie_genre.csv', index=False)
-        try:
-            movie_genre_df.to_sql(name='movie_genre_data', con=engine, if_exists='append')
-        except:
-            print("error occurred")
-            return
-
-def extract_relations(movie):
-    genres = movie.pop("genres")
-    prod_comps = movie.pop("production_companies")
-    spoken_lang = movie.pop("spoken_languages")
-
-    movie_genres = [
-        {'movie_id': movie['id'], 'genre_id': genre['id']}
-        for genre in genres
-    ]
-
-    movie_comps = [
-        {'movie_id': movie['id'], 'company_id': comp['id']}
-        for comp in prod_comps
-    ] 
-
-    movie_langs = [
-        {'movie_id': movie['id'], 'language_id': lang['iso_639_1']}
-        for lang in spoken_lang
-    ]
-    
-    return movie, movie_genres, movie_comps, movie_langs
-
+def ingest_countries():
+    return _ingest_static_data(
+        fetch_fn=fetch_countries, 
+        filename='csv/country.csv', 
+        table_name='raw_country_data',
+        columns={'iso_3166_1': 'string', 'english_name': 'string', 'native_name': 'string'}
+    )
 
 def ingest_popular_movie(pages=1):
     """
@@ -170,6 +107,28 @@ def ingest_popular_movie(pages=1):
 
     page: the number of page will be ingest
     """
+
+    def extract_relations(movie):
+        genres = movie.pop("genres")
+        prod_comps = movie.pop("production_companies")
+        spoken_lang = movie.pop("spoken_languages")
+
+        movie_genres = [
+            {'movie_id': movie['id'], 'genre_id': genre['id']}
+            for genre in genres
+        ]
+
+        movie_comps = [
+            {'movie_id': movie['id'], 'company_id': comp['id']}
+            for comp in prod_comps
+        ] 
+
+        movie_langs = [
+            {'movie_id': movie['id'], 'language_id': lang['iso_639_1']}
+            for lang in spoken_lang
+        ]
+        return movie, movie_genres, movie_comps, movie_langs
+
     cols = [
             'adult', 'belongs_to_collection', 'id', 'original_language', 'original_title', 'popularity',
             'release_date', 'title', 'budget', 'revenue', 'runtime', 'status', 'vote_average', 'vote_count'
@@ -190,37 +149,13 @@ def ingest_popular_movie(pages=1):
     
     movie_df = pd.DataFrame(movies, columns=cols)
     movie_df['belongs_to_collection'] = movie_df['belongs_to_collection'].notnull()
+    movie_df['extracted_at'] = datetime.now(timezone.utc)
 
     movie_genre_df = pd.DataFrame(movie_genres)
     movie_comp_df = pd.DataFrame(movie_comps)
     movie_lang_df = pd.DataFrame(movie_langs)
 
-    movie_df.to_sql(name='raw.raw_movie_data', con=engine, if_exists='append', index=False)
-    movie_genre_df.to_sql(name='raw.raw_mov_gen_relation', con=engine, if_exists='append', index=False)
-    movie_comp_df.to_sql(name='raw.raw_mov_comp_data', con=engine, if_exists='append', index=False)
-    movie_lang_df.to_sql(name='raw.raw_mov_lang_data', con=engine, if_exists='append', index=False)
-
-ingest_popular_movie(1)
-
-
-            # adult = 
-            # id
-            # original_language
-            # original_title
-            # overview
-            # popularity
-            # production_country
-            # release_date
-            # budget
-            # revenue
-            # runtime
-            # spoken_language
-            # status
-            # tagline
-            # title
-            # vote_average
-            # vote_count
-
-
-    
-
+    movie_df.to_sql(schema='raw', name='raw_movie_data', con=engine, if_exists='append', index=False)
+    movie_genre_df.to_sql(schema='raw', name='raw_mov_gen_relation', con=engine, if_exists='append', index=False)
+    movie_comp_df.to_sql(schema='raw', name='raw_mov_comp_relation', con=engine, if_exists='append', index=False)
+    movie_lang_df.to_sql(schema='raw', name='raw_mov_lang_relation', con=engine, if_exists='append', index=False)
