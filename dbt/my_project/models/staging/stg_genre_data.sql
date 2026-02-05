@@ -5,5 +5,5 @@ with source as (
 
 select 
     CAST(id AS INTEGER) as genre_id,
-    COALESCE(CAST(name AS TEXT), 'None') as genre_name,
+    COALESCE(CAST(name AS TEXT), 'None') as genre_name
 from source

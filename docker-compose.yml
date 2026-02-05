@@ -50,16 +50,16 @@ services:
     image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
     volumes:
       - ./dbt:/usr/app
-      - ./dbt:/root/.dbt
-    working_dir: /usr/app/my_project
+      - ./dbt/profiles.yml:/root/.dbt/profiles.yml
+    working_dir: /usr/app
     environment:
       DBT_PROFILES_DIR: "/root/.dbt"
     depends_on:
       - pgdatabase
     networks:
       - movie-network
-    entrypoint: [ "/bin/bash", "/root/.dbt/entrypoint.sh" ]
-    command: [ "debug", "--project-dir", "my_project" ]
+    entrypoint: [ "/bin/bash", "/usr/app/entrypoint.sh" ]
+    command: [ "debug" ]
 
 networks:
   movie-network:

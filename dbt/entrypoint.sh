@@ -12,10 +12,10 @@ if [ ! -d "$PROJECT_DIR" ]; then
 fi
 
 # Create profiles.yml if it doesn't exist (outside project check!)
-if [ ! -f "$PROFILES_FILE" ]; then
-    echo "Creating default profiles.yml..."
-    mkdir -p /root/.dbt
-    cat > "$PROFILES_FILE" <<EOF
+
+echo "Creating default profiles.yml..."
+mkdir -p /root/.dbt
+cat > "$PROFILES_FILE" <<EOF
 my_project:
   outputs:
     dev:
@@ -25,12 +25,11 @@ my_project:
       password: root
       port: 5432
       dbname: movie_pipeline
-      schema: dev
+      schema: raw
       threads: 4
   target: dev
 EOF
     echo "profiles.yml created!"
-fi
 
-# Execute the command passed to the container
-exec dbt "$@"
+# Execute the command passed to the container with project directory
+exec dbt "$@" --project-dir my_project
