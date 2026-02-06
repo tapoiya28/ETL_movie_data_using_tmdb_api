@@ -35,6 +35,7 @@ services:
       - ${AIRFLOW_PROJ_DIR:-.}/airflow/dags:/opt/airflow/dags
       - ${AIRFLOW_PROJ_DIR:-.}/ingest_api:/opt/airflow/ingest_api
       - ${AIRFLOW_PROJ_DIR:-.}/csv:/opt/airflow/csv
+      - //var/run/docker.sock:/var/run/docker.sock
       # - ${AIRFLOW_PROJ_DIR:-.}/airflow/logs:/opt/airflow/logs
       # - ${AIRFLOW_PROJ_DIR:-.}/airflow/config:/opt/airflow/config
       # - ${AIRFLOW_PROJ_DIR:-.}/airflow/plugins:/opt/airflow/plugins
@@ -59,7 +60,6 @@ services:
     networks:
       - movie-network
     entrypoint: [ "/bin/bash", "/usr/app/entrypoint.sh" ]
-    command: [ "debug" ]
 
 networks:
   movie-network:

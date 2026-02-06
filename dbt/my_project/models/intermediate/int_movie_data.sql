@@ -55,4 +55,3 @@ cleaned as (
 select * 
 from cleaned
 where rn = 1 
-    and release_year != 1900

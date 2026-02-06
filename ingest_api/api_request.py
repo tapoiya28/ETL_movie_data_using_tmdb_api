@@ -1,3 +1,4 @@
+from unicodedata import name
 from datetime import datetime, timezone
 from sqlalchemy import create_engine
 import time
@@ -10,6 +11,10 @@ API_KEY = '700952bb2b594cfeb52434c089230b84'
 BASE_URL = 'https://api.themoviedb.org/3'
 
 engine = create_engine('postgresql://root:root@pgdatabase:5432/movie_pipeline')
+
+def get_existing_movie_ids():
+    query = "SELECT DISTINCT id FROM raw.raw_movie_data"
+    return set(pd.read_sql(query, con=engine)['id'].tolist())
 
 # ----------------- FETCHING DATA -----------------------------
 def _fetch_from_api(endpoint, extra_params=None, extra_fn=None):
@@ -59,8 +64,19 @@ def fetch_countries():
         endpoint="configuration/countries"
     )
 
+def fetch_companies(page=1):
+    return _fetch_from_api(
+        endpoint="search/company",
+        extra_params={'page': page},
+        extra_fn=lambda data: [comp['id'] for comp in data.get('results', [])] or []
+    )
 
-# ----------------- extractING DATA -----------------------------
+def fetch_detail_company(comp_id):
+    return _fetch_from_api(
+        endpoint=f'company/{comp_id}'
+    )
+
+# ----------------- EXTRACTING DATA -----------------------------
 def _extract_static_data(fetch_fn, filename, table_name, columns, data_key=None):
     response = fetch_fn()
     if not response:
@@ -102,21 +118,41 @@ def extract_countries():
         columns={'iso_3166_1': 'string', 'english_name': 'string', 'native_name': 'string'}
     )
 
-def extract_popular_movie(pages=1):
+def extract_companies(from_page=1, to_page=2):
+
+    cols = ['id', 'name', 'original_country', 'headquarters', 'parent_company']
+    comps = []
+
+    for page in range(from_page, to_page + 1):
+        comp_ids = fetch_companies(page)
+        for comp_id in comp_ids:
+            comp = fetch_detail_company(comp_id)
+            comps.append(comp)
+
+    comp_df = pd.DataFrame(comps, columns=cols)
+    comp_df.to_sql(schema='raw', name='raw_company_data', con=engine, if_exists='replace', index=False)
+
+
+def extract_popular_movie(from_page=1, to_page=1):
     """
     extract N first page in the popular category
 
     page: the number of page will be extract
     """
-
     def extract_relations(movie):
         genres = movie.pop("genres")
         prod_comps = movie.pop("production_companies")
         spoken_lang = movie.pop("spoken_languages")
+        countries = movie.pop("production_countries")
 
         movie_genres = [
             {'movie_id': movie['id'], 'genre_id': genre['id']}
             for genre in genres
+        ]
+
+        movie_countries = [
+            {'movie_id': movie['id'], 'country_id': country['iso_3166_1']}
+            for country in countries
         ]
 
         movie_comps = [
@@ -128,27 +164,36 @@ def extract_popular_movie(pages=1):
             {'movie_id': movie['id'], 'language_id': lang['iso_639_1']}
             for lang in spoken_lang
         ]
-        return movie, movie_genres, movie_comps, movie_langs
+        return movie, movie_genres, movie_comps, movie_langs, movie_countries
 
     cols = [
             'adult', 'belongs_to_collection', 'id', 'original_language', 'original_title', 'popularity',
             'release_date', 'title', 'budget', 'revenue', 'runtime', 'status', 'vote_average', 'vote_count'
         ]
 
-    movies, movie_genres, movie_comps, movie_langs = [], [], [], []
-    for page in range(1, pages+1):
+    exist_movie = get_existing_movie_ids()
+
+    movies, movie_genres, movie_comps, movie_langs, movie_countries = [], [], [], [], []
+    for page in range(from_page, to_page + 1):
         movie_ids = fetch_popular_movie(page=page)
         for id in movie_ids:
+            # avoid duplicating extraction
+            if id in exist_movie:
+                continue
+            
+            # fetch detail movie information
             movie = fetch_detail_movie(id)
             if movie:
-                m, g, c, l = extract_relations(movie)
+                m, g, c, l, ct = extract_relations(movie)
                 movies.append(m)
                 movie_genres.extend(g)
                 movie_comps.extend(c)
                 movie_langs.extend(l)
+                movie_countries.extend(ct)
 
         time.sleep(0.1)
-        
+    
+    # dataframe
     movie_df = pd.DataFrame(movies, columns=cols)
     movie_df['belongs_to_collection'] = movie_df['belongs_to_collection'].notnull()
     movie_df['extracted_at'] = datetime.now(timezone.utc)
@@ -156,8 +201,11 @@ def extract_popular_movie(pages=1):
     movie_genre_df = pd.DataFrame(movie_genres)
     movie_comp_df = pd.DataFrame(movie_comps)
     movie_lang_df = pd.DataFrame(movie_langs)
+    movie_ctry_df = pd.DataFrame(movie_countries)
 
+    # load to raw schema
     movie_df.to_sql(schema='raw', name='raw_movie_data', con=engine, if_exists='append', index=False)
     movie_genre_df.to_sql(schema='raw', name='raw_mov_gen_relation', con=engine, if_exists='append', index=False)
     movie_comp_df.to_sql(schema='raw', name='raw_mov_comp_relation', con=engine, if_exists='append', index=False)
     movie_lang_df.to_sql(schema='raw', name='raw_mov_lang_relation', con=engine, if_exists='append', index=False)
+    movie_ctry_df.to_sql(schema='raw', name='raw_mov_ctry_relation', con=engine, if_exists='append', index=False)
