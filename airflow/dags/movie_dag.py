@@ -15,7 +15,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id='extracting_api-v1',
+    dag_id='extracting_api-static-data-v1',
     default_args=default_args
 ) as dag:
 
@@ -37,13 +37,6 @@ with DAG(
         dag=dag
     )
 
-    extract_company = PythonOperator(
-        task_id='extract_company_data',
-        python_callable=extract_companies,
-        op_args=[1,1],
-        dag=dag
-    )
-
     extract_movie = PythonOperator(
         task_id='extract_movie_data',
         python_callable=extract_popular_movie,
@@ -51,27 +44,27 @@ with DAG(
         dag=dag
     )
 
-    transformation_task = DockerOperator(
-        task_id='dbt_transformation',
-        image='ghcr.io/dbt-labs/dbt-postgres:1.9.latest',
-        command='run --project-dir /usr/app/my_project',
-        working_dir='/usr/app',
-        mounts=[
-            Mount(
-                source='D:\pj\movie_pipeline\dbt',
-                target='/usr/app',
-                type='bind'
-            ),
-            Mount(
-                source='D:\pj\movie_pipeline\dbt\profiles.yml',
-                target='/root/.dbt/profiles.yml',
-                type='bind'
-            )
-        ],
-        network_mode="movie_pipeline_movie-network",
-        docker_url='unix://var/run/docker.sock',
-        auto_remove='force',
-        dag=dag
-    )
+    # transformation_task = DockerOperator(
+    #     task_id='dbt_transformation',
+    #     image='ghcr.io/dbt-labs/dbt-postgres:1.9.latest',
+    #     command='run --project-dir /usr/app/my_project',
+    #     working_dir='/usr/app',
+    #     mounts=[
+    #         Mount(
+    #             source='D:\pj\movie_pipeline\dbt',
+    #             target='/usr/app',
+    #             type='bind'
+    #         ),
+    #         Mount(
+    #             source='D:\pj\movie_pipeline\dbt\profiles.yml',
+    #             target='/root/.dbt/profiles.yml',
+    #             type='bind'
+    #         )
+    #     ],
+    #     network_mode="movie_pipeline_movie-network",
+    #     docker_url='unix://var/run/docker.sock',
+    #     auto_remove='force',
+    #     dag=dag
+    # )
 
-    [extract_genre, extract_country, extract_language, extract_company] >> extract_movie >> transformation_task
+    [extract_genre, extract_country, extract_language] >> extract_movie

@@ -64,12 +64,12 @@ def fetch_countries():
         endpoint="configuration/countries"
     )
 
-def fetch_companies(page=1):
+def fetch_companies(name):
     return _fetch_from_api(
         endpoint="search/company",
-        extra_params={'page': page},
-        extra_fn=lambda data: [comp['id'] for comp in data.get('results', [])] or []
-    )
+        extra_params={},
+        extra_fn=lambda data: [comp['id'] for comp in data.get('results', [])]
+    ) or []
 
 def fetch_detail_company(comp_id):
     return _fetch_from_api(
@@ -88,6 +88,10 @@ def _extract_static_data(fetch_fn, filename, table_name, columns, data_key=None)
     try:
         if not os.path.exists(filename):
             df.to_csv(filename, index=False)
+
+        with engine.begin() as conn:
+            conn.execute(f"DROP TABLE IF EXISTS raw.{table_name} CASCADE")
+
         df.to_sql(schema='raw', name=table_name, con=engine, if_exists='replace', index=False)
     except Exception as e:
         print(f"error occurred when extracting static data: {e}")
@@ -118,20 +122,27 @@ def extract_countries():
         columns={'iso_3166_1': 'string', 'english_name': 'string', 'native_name': 'string'}
     )
 
-def extract_companies(from_page=1, to_page=2):
+def extract_companies(comp_ids):
 
     cols = ['id', 'name', 'original_country', 'headquarters', 'parent_company']
     comps = []
+    for comp_id in comp_ids:
+        comp = fetch_detail_company(comp_id)
+        comps.append(comp)
 
-    for page in range(from_page, to_page + 1):
-        comp_ids = fetch_companies(page)
-        for comp_id in comp_ids:
-            comp = fetch_detail_company(comp_id)
-            comps.append(comp)
-
+    print(len(comps))
     comp_df = pd.DataFrame(comps, columns=cols)
-    comp_df.to_sql(schema='raw', name='raw_company_data', con=engine, if_exists='replace', index=False)
+    try:
+        with engine.begin() as conn:
+            conn.execute("DROP TABLE IF EXISTS raw.raw_company_data CASCADE")
 
+        if not os.path.exists('csv/company.csv'):
+            comp_df.to_csv('csv/company.csv', index=False)
+            
+        comp_df.to_sql(schema='raw', name='raw_company_data', con=engine, if_exists='replace', index=False)
+        
+    except Exception as e:
+        print(f"error occurred when extracting company data: {e}")
 
 def extract_popular_movie(from_page=1, to_page=1):
     """
@@ -192,7 +203,13 @@ def extract_popular_movie(from_page=1, to_page=1):
                 movie_countries.extend(ct)
 
         time.sleep(0.1)
-    
+    print('movie_comps')
+    print(movie_comps)
+    # EXTRACT COMPANY HERE BC THE API DOES NOT SUPPORT FOR LIST OF COMPANIES
+    comp_ids = list(set(comp.get('company_id') for comp in movie_comps))
+    print("comp_ids: ", comp_ids)
+    extract_companies(comp_ids)
+
     # dataframe
     movie_df = pd.DataFrame(movies, columns=cols)
     movie_df['belongs_to_collection'] = movie_df['belongs_to_collection'].notnull()
@@ -209,3 +226,4 @@ def extract_popular_movie(from_page=1, to_page=1):
     movie_comp_df.to_sql(schema='raw', name='raw_mov_comp_relation', con=engine, if_exists='append', index=False)
     movie_lang_df.to_sql(schema='raw', name='raw_mov_lang_relation', con=engine, if_exists='append', index=False)
     movie_ctry_df.to_sql(schema='raw', name='raw_mov_ctry_relation', con=engine, if_exists='append', index=False)
+
