@@ -1,17 +1,21 @@
 from ingest_api.clients.base_client import *
+from ingest_api.utils.rate_limiter import RateLimiter
 import requests
 
 class TMDBClient(BaseAPIClient):
 
-    def __init__(self, api_key: str, base_url: str):
+    def __init__(self, api_key: str, base_url: str, requests_per_second: int = 40):
         super().__init__(api_key, base_url)
-        self.rate_limiter = 45
+        self.rate_limiter = RateLimiter(requests_per_second)
     
-    def fetch(self, endpoint: str, params: dict = None, extra_fn: function = None):
+    def fetch(self, endpoint: str, extra_params: dict = None, extra_fn: callable = None):
         """Base fetch function for all API endpoint"""
+        
+        # Wait if approaching rate limit
+        self.rate_limiter.wait_if_needed()
 
         params = {
-            "api_key": API_KEY,
+            "api_key": self.api_key,
             "language": "en-US",
         }
 
@@ -19,7 +23,7 @@ class TMDBClient(BaseAPIClient):
             params.update(extra_params)
 
         try:
-            response = requests.get(f"{BASE_URL}/{endpoint}", params=params)
+            response = requests.get(f"{self.base_url}/{endpoint}", params=params)
             response.raise_for_status()
             data = response.json()
             return extra_fn(data) if extra_fn else data
@@ -55,7 +59,7 @@ class TMDBClient(BaseAPIClient):
 
     # FETCH DETAIL PAGE
     def get_detail_movie(self, movie_id):
-        return _fetch_from_api(
+        return self.fetch(
             endpoint=f'movie/{movie_id}'
         )
 

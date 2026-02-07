@@ -1,4 +1,4 @@
-from ingest_api.database.repository import BaseRepository
+from ingest_api.database.repository.repository import BaseRepository
 from ingest_api.clients.base_client import BaseAPIClient
 from abc import ABC, abstractmethod
 
@@ -17,6 +17,5 @@ class BaseExtractor(ABC):
     def transform(self, data: dict):
         pass
 
-    def load(self, df: pd.dataframe):
+    def load(self, data):
         pass
-

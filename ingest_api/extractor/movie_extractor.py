@@ -1,4 +1,4 @@
-from ingest_api.database.repository import BaseRepository
+from ingest_api.database.repository.repository import BaseRepository
 from ingest_api.clients.base_client import BaseAPIClient
 from ingest_api.extractor.base_extractor import BaseExtractor
 
@@ -18,7 +18,7 @@ class MovieExtractor(BaseExtractor):
                 if id in existing_ids:
                     continue
                 # fetch detail movie information
-                movies.append(self.repository.get_detail_movie(id))
+                movies.append(self.client.get_detail_movie(id))
 
         return self.transform(movies)
 
@@ -44,7 +44,7 @@ class MovieExtractor(BaseExtractor):
         }
 
     def load(self, data: dict):
-        movies = data['movies']
+        movies = data['main']
         genre_relations = data['relations'].get('genre_relations')
         company_relations = data['relations'].get('company_relations')
         language_relations = data['relations'].get('language_relations')

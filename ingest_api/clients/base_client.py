@@ -10,4 +10,3 @@ class BaseAPIClient(ABC):
     @abstractmethod
     def fetch(self, endpoint, params, extra_fn):
         pass
-

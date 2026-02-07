@@ -1,14 +1,11 @@
 from ingest_api.database.connection import DatabaseConnection
-from repository import BaseRepository
+from ingest_api.database.repository.repository import BaseRepository
 
 import pandas as pd
 
-class MovieRepository(BaseRepository):
+class CompanyRepository(BaseRepository):
 
-    cols = [
-            'adult', 'belongs_to_collection', 'id', 'original_language', 'original_title', 'popularity',
-            'release_date', 'title', 'budget', 'revenue', 'runtime', 'status', 'vote_average', 'vote_count'
-        ]
+    cols = ['id', 'name', 'original_country', 'headquarters', 'parent_company_id']
 
     def __init__(self, db: DatabaseConnection, table_name: str, schema: str = 'raw'):
         super().__init__(db, table_name, schema)
@@ -29,16 +26,3 @@ class MovieRepository(BaseRepository):
             if_exists='append', 
             index=False
         )
-    
-    def save_relation(self, relations: list[dict], name):
-        df = pd.DataFrame(relations)
-        relation_name = f'raw_mov_{name[:4]}_relation'
-        df.to_sql(
-            schema=self.schema, 
-            name=relation_name, 
-            con=self.db.engine, 
-            if_exists='append', 
-            index=False
-        )
-
-    
