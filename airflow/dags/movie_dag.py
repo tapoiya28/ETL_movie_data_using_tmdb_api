@@ -40,31 +40,31 @@ with DAG(
     extract_movie = PythonOperator(
         task_id='extract_movie_data',
         python_callable=extract_popular_movie,
-        op_args=[1,1],
+        op_args=[1,250],
         dag=dag
     )
 
-    # transformation_task = DockerOperator(
-    #     task_id='dbt_transformation',
-    #     image='ghcr.io/dbt-labs/dbt-postgres:1.9.latest',
-    #     command='run --project-dir /usr/app/my_project',
-    #     working_dir='/usr/app',
-    #     mounts=[
-    #         Mount(
-    #             source='D:\pj\movie_pipeline\dbt',
-    #             target='/usr/app',
-    #             type='bind'
-    #         ),
-    #         Mount(
-    #             source='D:\pj\movie_pipeline\dbt\profiles.yml',
-    #             target='/root/.dbt/profiles.yml',
-    #             type='bind'
-    #         )
-    #     ],
-    #     network_mode="movie_pipeline_movie-network",
-    #     docker_url='unix://var/run/docker.sock',
-    #     auto_remove='force',
-    #     dag=dag
-    # )
+    transformation_task = DockerOperator(
+        task_id='dbt_transformation',
+        image='ghcr.io/dbt-labs/dbt-postgres:1.9.latest',
+        command='run --project-dir /usr/app/my_project',
+        working_dir='/usr/app',
+        mounts=[
+            Mount(
+                source='D:\pj\movie_pipeline\dbt',
+                target='/usr/app',
+                type='bind'
+            ),
+            Mount(
+                source='D:\pj\movie_pipeline\dbt\profiles.yml',
+                target='/root/.dbt/profiles.yml',
+                type='bind'
+            )
+        ],
+        network_mode="movie_pipeline_movie-network",
+        docker_url='unix://var/run/docker.sock',
+        auto_remove='force',
+        dag=dag
+    )
 
-    [extract_genre, extract_country, extract_language] >> extract_movie
+    [extract_genre, extract_country, extract_language] >> extract_movie >> transformation_task

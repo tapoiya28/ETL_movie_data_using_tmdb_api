@@ -1,3 +1,4 @@
+from requests import request
 from unicodedata import name
 from datetime import datetime, timezone
 from sqlalchemy import create_engine
@@ -7,14 +8,17 @@ import requests
 import os
 import pandas as pd
 
-API_KEY = '700952bb2b594cfeb52434c089230b84'
+API_KEY = '34206c292e84023831cfd5969adba447'
 BASE_URL = 'https://api.themoviedb.org/3'
 
 engine = create_engine('postgresql://root:root@pgdatabase:5432/movie_pipeline')
 
-def get_existing_movie_ids():
-    query = "SELECT DISTINCT id FROM raw.raw_movie_data"
-    return set(pd.read_sql(query, con=engine)['id'].tolist())
+def get_existing_ids(table_name):
+    query = f"SELECT DISTINCT id FROM raw.{table_name}"
+    try:
+        return set(pd.read_sql(query, con=engine)['id'].tolist())
+    except Exception:
+        return set()
 
 # ----------------- FETCHING DATA -----------------------------
 def _fetch_from_api(endpoint, extra_params=None, extra_fn=None):
@@ -123,23 +127,31 @@ def extract_countries():
     )
 
 def extract_companies(comp_ids):
+    exist_companies = get_existing_ids('raw_company_data')
+    print('extracting company: ', len(comp_ids))
 
-    cols = ['id', 'name', 'original_country', 'headquarters', 'parent_company']
+    cols = ['id', 'name', 'original_country', 'headquarters', 'parent_company_id']
     comps = []
     for comp_id in comp_ids:
+        if comp_id in exist_companies:
+            continue
+
         comp = fetch_detail_company(comp_id)
+        # Extract parent_company_id from dict 
+        if comp and isinstance(comp.get('parent_company'), dict):
+            comp['parent_company_id'] = comp['parent_company'].get('id')
+        else:
+            comp['parent_company_id'] = None
+        comp.pop('parent_company', None)  # Remove the dict field
         comps.append(comp)
 
-    print(len(comps))
+    print('total_comps:', len(comps))
     comp_df = pd.DataFrame(comps, columns=cols)
     try:
-        with engine.begin() as conn:
-            conn.execute("DROP TABLE IF EXISTS raw.raw_company_data CASCADE")
-
         if not os.path.exists('csv/company.csv'):
             comp_df.to_csv('csv/company.csv', index=False)
             
-        comp_df.to_sql(schema='raw', name='raw_company_data', con=engine, if_exists='replace', index=False)
+        comp_df.to_sql(schema='raw', name='raw_company_data', con=engine, if_exists='append', index=False)
         
     except Exception as e:
         print(f"error occurred when extracting company data: {e}")
@@ -182,11 +194,20 @@ def extract_popular_movie(from_page=1, to_page=1):
             'release_date', 'title', 'budget', 'revenue', 'runtime', 'status', 'vote_average', 'vote_count'
         ]
 
-    exist_movie = get_existing_movie_ids()
+    # check existing movie
+    exist_movie = get_existing_ids('raw_movie_data')
+    print('unique movie_ids:', len(exist_movie))
 
+    # Rate limiting tracker
+    request_cnt = 0
+    start_time = time.time()
+
+    print('extracting movie')
     movies, movie_genres, movie_comps, movie_langs, movie_countries = [], [], [], [], []
     for page in range(from_page, to_page + 1):
         movie_ids = fetch_popular_movie(page=page)
+        request_cnt += 1  # count the page request too
+        
         for id in movie_ids:
             # avoid duplicating extraction
             if id in exist_movie:
@@ -194,6 +215,16 @@ def extract_popular_movie(from_page=1, to_page=1):
             
             # fetch detail movie information
             movie = fetch_detail_movie(id)
+            request_cnt += 1
+
+            # Sleep only when approaching rate limit (40 requests per second)
+            if request_cnt >= 44:
+                elapsed = time.time() - start_time
+                if elapsed < 1:
+                    time.sleep(1 - elapsed)
+                request_cnt = 0
+                start_time = time.time()
+
             if movie:
                 m, g, c, l, ct = extract_relations(movie)
                 movies.append(m)
@@ -202,14 +233,14 @@ def extract_popular_movie(from_page=1, to_page=1):
                 movie_langs.extend(l)
                 movie_countries.extend(ct)
 
-        time.sleep(0.1)
-    print('movie_comps')
-    print(movie_comps)
+    print('get unique company id')
+    query = """select distinct company_id from raw.raw_mov_comp_relation"""
+    lst = set(pd.read_sql(query, con=engine)['company_id'].tolist())
     # EXTRACT COMPANY HERE BC THE API DOES NOT SUPPORT FOR LIST OF COMPANIES
-    comp_ids = list(set(comp.get('company_id') for comp in movie_comps))
-    print("comp_ids: ", comp_ids)
+    comp_ids = list(set(comp.get('company_id') for comp in movie_comps).union(lst))
     extract_companies(comp_ids)
 
+    print('to database')
     # dataframe
     movie_df = pd.DataFrame(movies, columns=cols)
     movie_df['belongs_to_collection'] = movie_df['belongs_to_collection'].notnull()
@@ -226,4 +257,3 @@ def extract_popular_movie(from_page=1, to_page=1):
     movie_comp_df.to_sql(schema='raw', name='raw_mov_comp_relation', con=engine, if_exists='append', index=False)
     movie_lang_df.to_sql(schema='raw', name='raw_mov_lang_relation', con=engine, if_exists='append', index=False)
     movie_ctry_df.to_sql(schema='raw', name='raw_mov_ctry_relation', con=engine, if_exists='append', index=False)
-

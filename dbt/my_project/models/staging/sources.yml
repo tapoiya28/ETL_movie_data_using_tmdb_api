@@ -10,4 +10,8 @@ sources:
       - name: raw_movie_genre_data
       - name: raw_language_data
       - name: raw_country_data
+      - name: raw_mov_gen_relation
+      - name: raw_mov_lang_relation
+      - name: raw_mov_comp_relation
+      - name: raw_mov_ctry_relation
       
