@@ -12,6 +12,7 @@ services:
       - "5433:5432"
     networks:
       - movie-network
+
   afdatabase:
     image: postgres:17
     container_name: airflow_postgres
@@ -52,6 +53,7 @@ services:
     volumes:
       - ./dbt:/usr/app
       - ./dbt/profiles.yml:/root/.dbt/profiles.yml
+      - dbt_state:/usr/app/my_project/.dbt_state
     working_dir: /usr/app
     environment:
       DBT_PROFILES_DIR: "/root/.dbt"
@@ -64,3 +66,6 @@ services:
 networks:
   movie-network:
     driver: bridge
+
+volumes:
+  dbt_state:
