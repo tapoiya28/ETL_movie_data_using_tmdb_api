@@ -1,6 +1,3 @@
-# Architecture
-![alt text](images/architecture.png)
-
 # ETL Movie Data Pipeline Using TMDB API
 
 A comprehensive ETL (Extract, Transform, Load) pipeline that extracts movie data from The Movie Database (TMDB) API, orchestrates the workflow using Apache Airflow, and transforms the data using dbt (data build tool) for analytics purposes.
