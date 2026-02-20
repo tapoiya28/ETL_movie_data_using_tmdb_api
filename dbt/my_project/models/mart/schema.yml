@@ -1,0 +1,64 @@
+models:
+  - name: fct_movie
+    columns:
+      - name: movie_key
+        data_tests:
+          - unique
+          - not_null
+      - name: movie_id
+        data_tests:
+          - unique
+          - not_null
+      - name: original_language
+
+      - name: title
+        data_tests:
+          - not_null
+      - name: original_title
+      - name: release_date
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: "'1900-01-01'"
+      - name: release_month
+        data_tests: 
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 12
+      - name: release_year
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 1900
+      - name: status
+        data_tests:
+          - accepted_values:
+              values: ['released', 'in production', 'planned', 'post production', 'rumored']
+      - name: runtime_minutes
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+      - name: is_adult
+      - name: belongs_to_collection
+
+      - name: popularity
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: average_rating
+      - name: vote_count
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: budget
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: revenue
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: profit
+      - name: roi_percentage
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
